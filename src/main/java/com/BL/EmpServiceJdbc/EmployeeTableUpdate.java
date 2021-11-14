@@ -15,8 +15,6 @@ public class EmployeeTableUpdate {
 	static Connection con;
 	public static void main(String[] args) throws Exception {
 
-		Connection con = null;
-		Statement stmt = null;
 		String qry = "update employee_payroll.payroll_service set basic_pay=3000000.00 where name='Terisa'";
 		try {
 			System.out.println("Driver Class Loaded");
