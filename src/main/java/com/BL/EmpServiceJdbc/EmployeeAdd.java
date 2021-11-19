@@ -1,8 +1,7 @@
 /*
- * UC8: Ability to also add to payroll details when a new Employee is added to the payroll.
- *      -Create payroll_details table in the database. 
- *      -All the payroll fields are derived fields from the salary. assumption is Deduction is 20% of salary, taxable pay is salary - deductions, tax is 10% of 
- *      taxable pay and net pay is salary - tax .
+ * Refactor UC8: Ability to also add to payroll details when a new Employee is added to the payroll.
+ *               -Enable Cascading Delete in payroll_details table so when employee is 
+ *                deleted the payroll entry is also automatically deleted.
  * 
  * @author : Navaya Shree
  * @since : 19-11-2020
@@ -13,91 +12,113 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Scanner;
 
 public class EmployeeAdd {
 	static PreparedStatement pstmt;
-	static Scanner sc = new Scanner(System.in);
-	static Scanner sc2 = new Scanner(System.in);
-	static Scanner sc3 = new Scanner(System.in);
 	static ResultSet rs;
-	static Connection con;
+	static Connection con;    
+	
+	 //Initializing queries for both tables
+    public static final String INSERT_EMPLOYEE_QUERY = "insert into employee_payroll.employees_payrolls (name, salary, start, gender) values(?,?,?,? )";
 
-	public static void insertData() throws Exception {
-
-
-        String qry = "insert into employee_payroll.employees_payrolls (name, salary, start, gender) values(?,?,?,? )";
-		
-		try {
-
-			con = ConnectionDB.createCP();
+    public static final String INSERT_PAYROLL_QUERY = "insert into employee_payroll.payroll_details (id, basic_pay, deductions, taxable_pay, tax, net_pay) values (?,?,?,?,?,?)";
 
 
-			pstmt = con.prepareStatement(qry);
-			System.out.println("Platform Created");
+    public static void main(String[] args) throws Exception {
 
-			System.out.println("Enter Name:");
-			String name = sc.nextLine();
-			pstmt.setString(1, name);
-			
-			System.out.println("Enter Your Salary:");
-			Double salary = sc3.nextDouble();
-			pstmt.setDouble(2, salary);
-			
-			System.out.println("Enter Your Joning Date:");
-			String start = sc.nextLine();
-			 pstmt.setDate(3, java.sql.Date.valueOf(start));
+        try {
 
-			System.out.println("Enter Your Gender:");
-			String gender = sc.nextLine();
-			pstmt.setString(4, gender);
+            con = ConnectionDB.createCP();
+            //setting AutoCommit false
+            con.setAutoCommit(false);
 
-			pstmt.executeUpdate();
-			System.out.println("Congrats! Data Inserted Successfully!!!!");
+            //adding new employee details using transaction
+            insertEmployeeDetail(con,"Joya",1325460,"2020-07-10","F");
+            insertPayrollData(con,19, 4839992, 70983,18839,38322,13737);
 
-		} catch (ClassNotFoundException | SQLException e) {
-			e.printStackTrace();
-		}
-		
-		String qry1 = "insert into employee_payroll.payroll_details (id, basic_pay, deductions, taxable_pay, tax, net_pay) values (?,?,?,?,?,?)";
+            //now commit transaction
+            con.commit();
 
-		try {
+        }catch (SQLException e) {
+            e.printStackTrace();
+            try {
+                con.rollback();
+                System.out.println("JDBC Transaction rolled back successfully");
+            } catch (SQLException e1) {
+                System.out.println("SQLException in rollback"+e.getMessage());
+            }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (con != null)
+                    con.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
 
-			con = ConnectionDB.createCP();
+    }
 
-			pstmt = con.prepareStatement(qry1);
-			System.out.println("Platform Created");
 
-			System.out.println("Enter Employee ID:");
-			int id = sc2.nextInt();
-			pstmt.setInt(1, id);
-			
-			System.out.println("Enter Basic_pay:");
-			Double basic_pay = sc3.nextDouble();
-			pstmt.setDouble(2, basic_pay);
-			
-			 double deductions = basic_pay * 0.2;
-			 pstmt.setDouble(3, deductions);
-			 
-	          double taxable_pay = basic_pay - deductions;
-	          pstmt.setDouble(4, taxable_pay);
-	          
-	          double tax = taxable_pay * 0.1;
-	          pstmt.setDouble(5, tax);
-	          
-	          double net_pay = basic_pay - tax;
-	          pstmt.setDouble(6,net_pay);
-	          
-	          pstmt.executeUpdate();
-				System.out.println("Congrats! Data Inserted Successfully!!!!");
-						
-		} catch (ClassNotFoundException | SQLException e) {
-			e.printStackTrace();
-		}
-	}
+    private static void insertPayrollData(Connection connection,  int id, double basic_pay, double deductions, double taxable_pay, double tax, double net_pay) throws SQLException {
+        pstmt = con.prepareStatement(INSERT_PAYROLL_QUERY);
+        pstmt.setInt(1, id);
+        pstmt.setDouble(2, basic_pay);
+        pstmt.setDouble(3, deductions);
+        pstmt.setDouble(4, taxable_pay);
+        pstmt.setDouble(5, tax);
+        pstmt.setDouble(6, net_pay);
 
-	public static void main(String[] args) throws Exception {
-		 EmployeeAdd.insertData();
-		
-	}
+
+        pstmt.executeUpdate();
+
+        System.out.println("Payroll Data inserted successfully for Basic_Pay=" + basic_pay);
+        pstmt.close();
+
+    }
+
+
+    private static void insertEmployeeDetail( Connection con2, String name, double salary,
+                                             String start, String gender) throws SQLException {
+        pstmt = con.prepareStatement(INSERT_EMPLOYEE_QUERY);
+        pstmt.setString(1, name);
+        pstmt.setDouble(2, salary);
+        pstmt.setDate(3, java.sql.Date.valueOf(start));
+        pstmt.setString(4, gender);
+
+        pstmt.executeUpdate();
+
+        System.out.println("Employee Data inserted successfully for Salary =" + salary);
+        pstmt.close();
+        //cascadingdelete();
+    }
+
+    public static void cascadingdelete() throws SQLException {
+
+        try {
+
+            String query = "Delete from employee_payroll.payroll_details where Id =15";
+
+            con = ConnectionDB.createCP();
+            
+            pstmt= con.prepareStatement(query);
+            pstmt.executeUpdate();
+            System.out.println(" Record deleted!");
+        }catch (SQLException e) {
+            e.printStackTrace();
+        }catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+            if(con != null) {
+                con.close();
+            }
+            if(pstmt != null) {
+                pstmt.close();
+            }
+        }
+
+    }
+
+	
 }
